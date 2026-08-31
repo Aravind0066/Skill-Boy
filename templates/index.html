@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillBlade Referee</title>
+    <meta name="description" content="Automated design evaluation for UI/UX using computer vision.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="container">
+
+    <!-- Top bar: theme toggle -->
+    <div class="top-bar">
+        <span class="toggle-label">Dark</span>
+        <label class="theme-switch" id="themeSwitch" title="Toggle light/dark theme">
+            <input type="checkbox" id="themeToggle">
+            <span class="theme-slider"></span>
+        </label>
+        <span class="toggle-label">Light</span>
+    </div>
+
+    <!-- Header -->
+    <header class="main-header">
+        <h1>
+            SkillBlade Referee
+            <span class="sub-title">Automated UI Analysis</span>
+        </h1>
+        <p class="header-subtitle">Evaluate your design craft with deterministic computer vision.</p>
+    </header>
+
+    <!-- Upload Panel -->
+    <main>
+        <div class="upload-panel">
+            <div class="panel-title">New Evaluation</div>
+
+            <form action="/" method="post" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-mode-toggle" style="margin-bottom: 2rem; display: flex; gap: 1rem; justify-content: center;">
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="radio" name="upload_mode" value="images" checked>
+                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Multiple Images</span>
+                    </label>
+                    <label style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="radio" name="upload_mode" value="video">
+                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Single Video</span>
+                    </label>
+                </div>
+
+                <div class="file-drop-area" id="dropArea">
+                    <span class="drop-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </span>
+                    <span class="drop-btn" id="dropBtnText">Browse Images</span>
+                    <span class="drop-msg" id="dropMsg">or drag & drop screenshots (PNG, JPG, WEBP)</span>
+                    <input class="file-input" type="file" name="files" id="fileInput"
+                           accept="image/png, image/jpeg, image/webp" multiple required>
+                </div>
+                <button type="submit" class="submit-btn" id="submitBtn">
+                    Run Analysis
+                </button>
+            </form>
+        </div>
+
+        <div class="rules-info">
+            <h3>Evaluation Criteria</h3>
+            <div class="rules-grid">
+                <div><span>Contrast Ratio</span><span>30%</span></div>
+                <div><span>Grid Alignment</span><span>25%</span></div>
+                <div><span>Color Palette</span><span>20%</span></div>
+                <div><span>Spacing Rhythm</span><span>15%</span></div>
+                <div><span>Button Consistency</span><span>10%</span></div>
+            </div>
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+    // ── Theme Toggle ─────────────────────────────────────────
+    const html = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+
+    // Restore saved preference
+    const saved = localStorage.getItem('sb-theme');
+    if (saved === 'light') {
+        html.setAttribute('data-theme', 'light');
+        toggle.checked = true;
+    }
+
+    toggle.addEventListener('change', () => {
+        const theme = toggle.checked ? 'light' : 'dark';
+        html.setAttribute('data-theme', theme);
+        localStorage.setItem('sb-theme', theme);
+    });
+
+    // ── File Input UI ─────────────────────────────────────────
+    const fileInput = document.getElementById('fileInput');
+    const dropMsg   = document.getElementById('dropMsg');
+    const dropArea  = document.getElementById('dropArea');
+    const submitBtn = document.getElementById('submitBtn');
+    const dropBtnText = document.getElementById('dropBtnText');
+
+    // Handle Mode Toggle
+    const modeRadios = document.querySelectorAll('input[name="upload_mode"]');
+    modeRadios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'images') {
+                fileInput.accept = 'image/png, image/jpeg, image/webp';
+                fileInput.multiple = true;
+                dropBtnText.textContent = 'Browse Images';
+                dropMsg.textContent = 'or drag & drop screenshots (PNG, JPG, WEBP)';
+            } else {
+                fileInput.accept = 'video/mp4, video/webm, video/avi';
+                fileInput.multiple = false;
+                dropBtnText.textContent = 'Browse Video';
+                dropMsg.textContent = 'or drag & drop a single video (MP4, WEBM)';
+            }
+            // Reset input
+            fileInput.value = '';
+            dropArea.style.borderColor = 'var(--border-focus)';
+        });
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            if (fileInput.files.length === 1) {
+                dropMsg.textContent = fileInput.files[0].name;
+            } else {
+                dropMsg.textContent = `${fileInput.files.length} files selected`;
+            }
+            dropArea.style.borderColor = 'var(--accent)';
+        }
+    });
+
+    // Drag & drop highlight
+    dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('dragover'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('dragover'));
+    dropArea.addEventListener('drop', e => {
+        e.preventDefault();
+        dropArea.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            if (fileInput.files.length === 1) {
+                dropMsg.textContent = fileInput.files[0].name;
+            } else {
+                dropMsg.textContent = `${fileInput.files.length} files selected`;
+            }
+            dropArea.style.borderColor = 'var(--accent)';
+        }
+    });
+
+    // Loading state on submit
+    document.getElementById('uploadForm').addEventListener('submit', () => {
+        submitBtn.textContent = 'Processing...';
+        submitBtn.disabled = true;
+    });
+</script>
+</body>
+</html>

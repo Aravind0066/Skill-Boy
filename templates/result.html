@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillBlade Referee — Result</title>
+    <meta name="description" content="SkillBlade evaluation result: {{ results.tier_name }} tier, score {{ results.design_craft_score }}/100.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .frames-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .frame-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .frame-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        .frame-title {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .frame-score {
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        .frame-tier {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .frame-modules {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .frame-mod {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+        <span class="toggle-label">Dark</span>
+        <label class="theme-switch" title="Toggle light/dark theme">
+            <input type="checkbox" id="themeToggle">
+            <span class="theme-slider"></span>
+        </label>
+        <span class="toggle-label">Light</span>
+    </div>
+
+    {% if results.error %}
+    <!-- ── Error State ───────────────────────────────────── -->
+    <header class="main-header">
+        <h1>Analysis Failed</h1>
+    </header>
+    <div class="error-card">
+        {{ results.error }}
+        <br><br>
+        <a href="/" class="back-link">Try Again</a>
+    </div>
+
+    {% else %}
+    <!-- ── Normal Result ─────────────────────────────────── -->
+    <a href="/" class="back-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+        Back to Upload
+    </a>
+
+    <header class="main-header" style="margin-bottom: 2rem;">
+        <h1>
+            Evaluation Result
+            {% if results.is_multi %}
+            <span class="sub-title">Multi-Asset Aggregate ({{ results.file_count }} frames)</span>
+            {% else %}
+            <span class="sub-title">Design &amp; Craft Analysis</span>
+            {% endif %}
+        </h1>
+    </header>
+
+    {# ── Score Hero ─────────────────────────────────────────── #}
+    {% set tier_css = 'tier-' + results.tier_key %}
+    <section class="score-hero {{ tier_css }}">
+        <div class="tier-bar"></div>
+
+        <!-- Score ring -->
+        <div class="score-ring">
+            <svg viewBox="0 0 120 120" class="ring-svg">
+                <circle cx="60" cy="60" r="52" class="ring-bg"/>
+                <circle cx="60" cy="60" r="52" class="ring-fill"
+                    id="scoreRing"
+                    stroke-dasharray="0 326.7"
+                    stroke-dashoffset="0"/>
+            </svg>
+            <div class="score-label">
+                <span class="score-number" id="scoreCounter">0</span>
+                <span class="score-max">/100</span>
+            </div>
+        </div>
+
+        <!-- Tier badge -->
+        <div class="tier-badge">
+            <span class="tier-icon">{{ results.tier_icon }}</span>
+            <span>{{ results.tier_name | upper }}</span>
+        </div>
+
+        <!-- Description -->
+        <p class="tier-desc">{{ results.tier_desc }}</p>
+
+        <!-- Points in rubric -->
+        <div class="points-row">
+            <span>Points Awarded:</span>
+            <span class="pts-val">{{ results.design_craft_points }}</span>
+            <span>/ {{ results.max_points }}</span>
+        </div>
+    </section>
+
+    {% if results.is_multi %}
+        {# ── Multi-Asset Breakdown ──────────────────────────────── #}
+        <div class="section-header">Individual Frames Breakdown</div>
+        <div class="frames-grid">
+            {% for frame in results.frames %}
+            <div class="frame-card">
+                <div class="frame-header">
+                    <span class="frame-title">Frame {{ loop.index }}</span>
+                    <div>
+                        <span class="frame-score">{{ frame.design_craft_score }}</span>
+                        <span class="frame-tier tier-{{ frame.tier_key }}" style="color: var(--{{ frame.tier_key }}); background: rgba(255,255,255,0.05); margin-left: 0.5rem;">{{ frame.tier_name }}</span>
+                    </div>
+                </div>
+                <div class="frame-modules">
+                    {% for m in frame.modules %}
+                    <div class="frame-mod">
+                        <span style="color: var(--muted)">{{ m.label }}</span>
+                        <span class="{% if m.sub_score >= 75 %}ss-good{% elif m.sub_score >= 50 %}ss-avg{% else %}ss-bad{% endif %}" style="padding: 0 4px; border-radius: 4px;">{{ m.sub_score }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        {# ── Single Asset UI (Existing) ─────────────────────────── #}
+        {% if results.design_craft_score >= 90 %}
+        <div class="elite-banner">
+            Outstanding Craft — No critical weaknesses detected.
+        </div>
+        {% endif %}
+
+        {% if results.weaknesses %}
+        <div class="analysis-panel danger-panel">
+            <div class="analysis-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                Action Required
+            </div>
+            <ul class="analysis-list">
+                {% for m in results.weaknesses %}
+                <li>
+                    <span class="danger-tag">{{ m.label }}</span>
+                    <span>{{ m.feedback }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if results.strengths %}
+        <div class="analysis-panel strong-panel">
+            <div class="analysis-title">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Strengths
+            </div>
+            <ul class="analysis-list">
+                {% for m in results.strengths %}
+                <li>
+                    <span class="strong-tag">{{ m.label }}</span>
+                    <span>{{ m.sub_score }}/100 — {{ m.feedback }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="section-header">Module Breakdown</div>
+        <div class="modules-grid">
+            {% for m in results.modules %}
+            {%  set ss_class = 'ss-good' if m.sub_score >= 75 else ('ss-avg' if m.sub_score >= 50 else 'ss-bad') %}
+            <div class="module-card" id="mod-{{ m.key }}">
+                <div class="weight-tag">Weight: {{ m.weight_pct }}%</div>
+
+                <div class="module-card-top">
+                    <span class="module-name">{{ m.label }}</span>
+                    <span class="module-sub-score {{ ss_class }}">{{ m.sub_score }}/100</span>
+                </div>
+
+                <div class="module-raw">
+                    {{ m.raw_label }}: <strong>{{ m.raw_display }}</strong>
+                </div>
+
+                <div class="px-bar-wrap">
+                    <div class="px-bar" id="bar-{{ m.key }}" style="width: 0%"></div>
+                </div>
+
+                <p class="module-feedback">{{ m.feedback }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% endif %}
+
+</div>
+
+<script>
+    // ── Theme Toggle ─────────────────────────────────────────
+    const html   = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+    const saved  = localStorage.getItem('sb-theme');
+    if (saved === 'light') { html.setAttribute('data-theme', 'light'); toggle.checked = true; }
+    toggle.addEventListener('change', () => {
+        const theme = toggle.checked ? 'light' : 'dark';
+        html.setAttribute('data-theme', theme);
+        localStorage.setItem('sb-theme', theme);
+    });
+
+    // ── Score Ring Animation ─────────────────────────────────
+    const TOTAL_DASH = 326.7;
+    const targetScore = {{ results.design_craft_score | default(0) }};
+    const ring = document.getElementById('scoreRing');
+    const counter = document.getElementById('scoreCounter');
+
+    if (ring && targetScore != null) {
+        const targetDash = (targetScore / 100) * TOTAL_DASH;
+        let startTime = null;
+        const duration = 1200;
+
+        function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+
+        function animate(ts) {
+            if (!startTime) startTime = ts;
+            const progress = Math.min((ts - startTime) / duration, 1);
+            const eased = easeOut(progress);
+
+            const currentDash = targetDash * eased;
+            ring.setAttribute('stroke-dasharray', `${currentDash.toFixed(1)} ${TOTAL_DASH}`);
+            counter.textContent = Math.round(targetScore * eased);
+
+            if (progress < 1) requestAnimationFrame(animate);
+        }
+        requestAnimationFrame(animate);
+    }
+
+    // ── Module Bar Animations ────────────────────────────────
+    {% if not results.error and not results.is_multi %}
+    const moduleData = [
+        {% for m in results.modules %}
+        { key: "{{ m.key }}", score: {{ m.sub_score }} },
+        {% endfor %}
+    ];
+
+    moduleData.forEach((m, i) => {
+        const bar = document.getElementById('bar-' + m.key);
+        if (bar) {
+            setTimeout(() => {
+                bar.style.transition = 'width 0.8s cubic-bezier(0.4,0,0.2,1)';
+                bar.style.width = m.score + '%';
+            }, 300 + i * 100);
+        }
+        // Fade-in cards
+        const card = document.getElementById('mod-' + m.key);
+        if (card) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(16px)';
+            setTimeout(() => {
+                card.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 400 + i * 80);
+        }
+    });
+    {% endif %}
+</script>
+</body>
+</html>
