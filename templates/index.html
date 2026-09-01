@@ -40,11 +40,11 @@
                 <div class="upload-mode-toggle" style="margin-bottom: 2rem; display: flex; gap: 1rem; justify-content: center;">
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
                         <input type="radio" name="upload_mode" value="images" checked>
-                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Multiple Images</span>
+                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Images</span>
                     </label>
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
                         <input type="radio" name="upload_mode" value="video">
-                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Single Video</span>
+                        <span style="font-family: var(--font-mono); font-size: 0.9rem;">Video</span>
                     </label>
                 </div>
 
@@ -120,7 +120,7 @@
                 fileInput.accept = 'video/mp4, video/webm, video/avi';
                 fileInput.multiple = false;
                 dropBtnText.textContent = 'Browse Video';
-                dropMsg.textContent = 'or drag & drop a single video (MP4, WEBM)';
+                dropMsg.textContent = 'or drag & drop a video (MP4, WEBM)';
             }
             // Reset input
             fileInput.value = '';
