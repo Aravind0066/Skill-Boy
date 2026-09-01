@@ -5,6 +5,18 @@ from flask import Flask, request, render_template, redirect
 from werkzeug.utils import secure_filename
 from evaluator import evaluate_screenshot
 from modules.video_frame_extractor import extract_frames
+from dotenv import load_dotenv
+from supabase import create_client, Client
+import json
+
+load_dotenv()
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+supabase: Client = None
+
+if SUPABASE_URL and SUPABASE_KEY:
+    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = Flask(__name__)
 
@@ -122,6 +134,23 @@ def index():
             aggregated_results["is_multi"] = False
             aggregated_results["mode"] = mode
             aggregated_results["file_count"] = 1
+            
+        # Store in Supabase if configured
+        if supabase:
+            try:
+                # Ensure JSON serialization handles numpy types if any leak through, although the evaluator should return standard types
+                # We can dump and load to be safe, or just insert the dict directly if standard
+                
+                db_record = {
+                    "mode": mode,
+                    "file_count": aggregated_results.get("file_count", 1),
+                    "design_craft_score": aggregated_results.get("design_craft_score", 0),
+                    "tier_name": aggregated_results.get("tier_name", "Unknown"),
+                    "results_json": aggregated_results
+                }
+                supabase.table("evaluations").insert(db_record).execute()
+            except Exception as e:
+                print(f"Failed to store result in Supabase: {e}")
             
         return render_template('result.html', results=aggregated_results)
             
