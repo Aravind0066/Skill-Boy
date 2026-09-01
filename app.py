@@ -130,4 +130,5 @@ def index():
 # Vercel uses this as the WSGI application object
 # The variable name 'app' is what @vercel/python looks for by default
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
