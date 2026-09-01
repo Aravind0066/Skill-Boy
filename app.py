@@ -179,8 +179,6 @@ def index():
                     "file_count": int(safe_results.get("file_count", 1)),
                     "design_craft_score": float(safe_results.get("design_craft_score", 0)),
                     "tier_name": str(safe_results.get("tier_name", "Unknown")),
-                    "tier_key": str(safe_results.get("tier_key", "unknown")),
-                    "tier_icon": str(safe_results.get("tier_icon", "")),
                     "image_urls": image_urls,
                     "results_json": safe_results
                 }
@@ -198,7 +196,14 @@ def history():
         return render_template('history.html', error="Supabase is not configured.", evaluations=[])
     
     try:
-        response = supabase.table('evaluations').select('id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls').order('created_at', desc=True).execute()
+        response = supabase.table('evaluations').select('id, created_at, mode, file_count, design_craft_score, tier_name, image_urls').order('created_at', desc=True).execute()
+        
+        from evaluator import get_tier
+        for ev in response.data:
+            _, t_icon, t_key = get_tier(ev.get('design_craft_score', 0))
+            ev['tier_icon'] = t_icon
+            ev['tier_key'] = t_key
+            
         return render_template('history.html', evaluations=response.data)
     except Exception as e:
         return render_template('history.html', error=f"Failed to fetch history: {str(e)}", evaluations=[])
