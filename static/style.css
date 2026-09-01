@@ -521,9 +521,9 @@ body::before {
     border-radius: 4px;
     transition: width 1s cubic-bezier(0.4,0,0.2,1);
 }
-.ss-good .px-bar { background: var(--green); }
-.ss-avg .px-bar  { background: var(--orange); }
-.ss-bad .px-bar  { background: var(--red); }
+.px-bar.ss-good { background: var(--green); }
+.px-bar.ss-avg  { background: var(--orange); }
+.px-bar.ss-bad  { background: var(--red); }
 
 .module-feedback {
     font-size: 0.95rem;

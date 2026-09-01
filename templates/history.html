@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillBlade Referee — History</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .history-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .history-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        .history-thumb {
+            width: 100%;
+            height: 180px;
+            background: var(--bg2);
+            object-fit: cover;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+        .history-content {
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-score {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .history-tier {
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        .history-meta {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--muted);
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="top-bar">
+        <span class="toggle-label">Dark</span>
+        <label class="theme-switch" id="themeSwitch" title="Toggle light/dark theme">
+            <input type="checkbox" id="themeToggle">
+            <span class="theme-slider"></span>
+        </label>
+        <span class="toggle-label">Light</span>
+    </div>
+
+    <header class="main-header" style="margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: 800px; margin: 0 auto;">
+            <h1>Evaluation History</h1>
+            <a href="/" class="submit-btn" style="text-decoration: none; padding: 0.6rem 1.2rem; font-size: 0.9rem;">+ New Evaluation</a>
+        </div>
+    </header>
+
+    <main>
+        {% if error %}
+        <div class="error-card">
+            {{ error }}
+        </div>
+        {% elif not evaluations %}
+        <div style="text-align: center; color: var(--muted); padding: 4rem 1rem;">
+            No evaluations found. Start by running an analysis!
+        </div>
+        {% else %}
+        <div class="history-grid">
+            {% for eval in evaluations %}
+            <a href="/history/{{ eval.id }}" class="history-card">
+                {% if eval.image_urls and eval.image_urls|length > 0 %}
+                <img src="{{ eval.image_urls[0] }}" class="history-thumb" alt="Thumbnail" loading="lazy">
+                {% else %}
+                <div class="history-thumb">No Preview Available</div>
+                {% endif %}
+                <div class="history-content">
+                    <div class="history-header">
+                        <span class="history-score">{{ eval.design_craft_score }}/100</span>
+                        <span class="history-tier tier-{{ eval.tier_key }}" style="color: var(--{{ eval.tier_key }}); background: rgba(255,255,255,0.05);">
+                            {{ eval.tier_icon }} {{ eval.tier_name }}
+                        </span>
+                    </div>
+                    <div class="history-meta">
+                        <span>{{ eval.mode | capitalize }} ({{ eval.file_count }} files)</span>
+                        <span>{{ eval.created_at[:10] }}</span>
+                    </div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+
+<script>
+    const html = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+    const saved = localStorage.getItem('sb-theme');
+    if (saved === 'light') {
+        html.setAttribute('data-theme', 'light');
+        toggle.checked = true;
+    }
+    toggle.addEventListener('change', () => {
+        const theme = toggle.checked ? 'light' : 'dark';
+        html.setAttribute('data-theme', theme);
+        localStorage.setItem('sb-theme', theme);
+    });
+</script>
+</body>
+</html>
