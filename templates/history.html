@@ -92,7 +92,7 @@
     </header>
 
     <main>
-        {% if error %}
+        {% if error is defined and error %}
         <div class="error-card">
             {{ error }}
         </div>
@@ -118,7 +118,7 @@
                     </div>
                     <div class="history-meta">
                         <span>{{ eval.mode | capitalize }} ({{ eval.file_count }} files)</span>
-                        <span>{{ eval.created_at[:10] }}</span>
+                        <span>{{ eval.created_at[:10] if eval.created_at|length >= 10 else eval.created_at }}</span>
                     </div>
                 </div>
             </a>

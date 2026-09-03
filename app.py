@@ -167,10 +167,9 @@ def index():
             
         # Store in Supabase if configured
         if supabase:
-            aggregated_results["id"] = eval_id
-            aggregated_results["image_urls"] = image_urls
             try:
                 # Round-trip through JSON to convert any numpy types to native Python
+                # NOTE: Keep results_json clean — don't inject id/image_urls into it
                 safe_results = json.loads(json.dumps(aggregated_results, default=str))
                 
                 db_record = {
@@ -187,7 +186,11 @@ def index():
                 supabase.table("evaluations").insert(db_record).execute()
             except Exception as e:
                 print(f"Failed to store result in Supabase: {e}")
-            
+
+        # Attach eval metadata for the result page (after DB write, so results_json stays clean)
+        aggregated_results["id"] = eval_id
+        aggregated_results["image_urls"] = image_urls
+
         return render_template('result.html', results=aggregated_results)
             
     return render_template('index.html')
@@ -195,35 +198,54 @@ def index():
 @app.route('/history')
 def history():
     if not supabase:
-        return render_template('history.html', error="Supabase is not configured.", evaluations=[])
-    
+        return render_template('history.html', error="Database not configured. Add SUPABASE_URL and SUPABASE_KEY to your environment variables.", evaluations=[])
+
     try:
-        response = supabase.table('evaluations').select('id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls').order('created_at', desc=True).execute()
-        
-        from evaluator import get_tier
-        for ev in response.data:
-            _, t_icon, t_key = get_tier(ev.get('design_craft_score', 0))
-            ev['tier_icon'] = t_icon
-            ev['tier_key'] = t_key
-            
-        return render_template('history.html', evaluations=response.data)
+        response = supabase.table('evaluations').select(
+            'id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls'
+        ).order('created_at', desc=True).execute()
+
+        evaluations = response.data or []
+
+        # Ensure every record has a safe created_at string for the template's [:10] slice
+        for ev in evaluations:
+            if not ev.get('created_at'):
+                ev['created_at'] = 'Unknown date'
+            # Normalise image_urls — Supabase may return None instead of []
+            if ev.get('image_urls') is None:
+                ev['image_urls'] = []
+
+        return render_template('history.html', evaluations=evaluations, error=None)
     except Exception as e:
+        print(f"History fetch error: {e}")
         return render_template('history.html', error=f"Failed to fetch history: {str(e)}", evaluations=[])
 
-@app.route('/history/<uuid:eval_id>')
+@app.route('/history/<string:eval_id>')
 def history_detail(eval_id):
-    if not supabase:
-        return redirect('/')
+    """Show full result page for a previously-evaluated entry.
     
+    Uses <string:eval_id> instead of <uuid:eval_id> to avoid Flask rejecting
+    IDs that may have been stored with non-standard formatting.
+    """
+    if not supabase:
+        return render_template('history.html', error="Database not configured.", evaluations=[])
+
     try:
-        response = supabase.table('evaluations').select('results_json').eq('id', str(eval_id)).execute()
+        response = supabase.table('evaluations').select('results_json, image_urls').eq('id', eval_id).execute()
         if not response.data:
-            return redirect('/history')
-            
-        results = response.data[0]['results_json']
+            return render_template('history.html', error=f"Evaluation '{eval_id}' not found.", evaluations=[])
+
+        row = response.data[0]
+        results = row.get('results_json') or {}
+
+        # Re-attach image_urls so the result page can display thumbnails
+        if not results.get('image_urls'):
+            results['image_urls'] = row.get('image_urls') or []
+
         return render_template('result.html', results=results)
     except Exception as e:
-        return redirect('/history')
+        print(f"History detail error for {eval_id}: {e}")
+        return render_template('history.html', error=f"Failed to load evaluation: {str(e)}", evaluations=[])
 
 
 # Vercel uses this as the WSGI application object
