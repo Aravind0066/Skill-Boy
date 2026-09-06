@@ -140,16 +140,29 @@ def index():
 
         # Evaluate all screenshots/frames
         all_results = []
+        evaluation_errors = []
         for fp in filepaths:
-            res = evaluate_screenshot(fp)
+            try:
+                res = evaluate_screenshot(fp)
+            except Exception as error:
+                res = {"error": str(error)}
+
             if "error" not in res:
                 all_results.append(res)
+            else:
+                evaluation_errors.append(
+                    f"{os.path.basename(fp)}: {res.get('error', 'Unknown evaluation error')}"
+                )
         
         # Clean up temp files after evaluation
         cleanup_files(filepaths)
 
         if not all_results:
-            return render_template('result.html', results={"error": "Evaluation failed on all files."})
+            details = " ".join(evaluation_errors)
+            return render_template(
+                'result.html',
+                results={"error": f"Evaluation failed on all files. {details}"}
+            )
             
         is_multi = len(all_results) > 1
 
