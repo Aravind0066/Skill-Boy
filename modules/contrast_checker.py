@@ -1,12 +1,16 @@
 """
 Contrast & Readability Module
 ==============================
-Evaluates the WCAG contrast ratio between the dominant foreground and
-background colors using K-Means clustering on pixel data.
+Evaluates the WCAG contrast ratio using Morphological Text-Region Isolation.
+
+Instead of randomly sampling the entire image, this algorithm uses edge detection 
+(Canny) and morphological operations (dilation) to precisely isolate text and UI 
+elements. It extracts the foreground color directly from the content and samples 
+the immediate background using a morphological "halo" mask, ensuring we are 
+calculating the true readability contrast of the actual content.
 
 Determinism guarantee:
   - Uses kmeans_deterministic() from kmeans_utils — pure NumPy, no RNG.
-  - Identical image always produces identical scores.
 """
 
 import cv2
@@ -66,50 +70,70 @@ def evaluate_contrast(image_path):
             return {"raw_value": 0, "sub_score": 0,
                     "feedback": "Could not load image.", "error": True}
 
-        # Resize uniformly so pixel count is always identical for the same image
-        small = cv2.resize(img, (200, int(200 * img.shape[0] / img.shape[1])))
-        pixels = small.reshape(-1, 3).astype(np.float32)
+        # Resize uniformly for consistent performance
+        small = cv2.resize(img, (400, int(400 * img.shape[0] / img.shape[1])))
+        gray = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
 
-        K = 5
+        # ── Morphological Text-Region Isolation ────────────────────────────────
+        # Detect sharp edges (text and UI boundaries)
+        edges = cv2.Canny(gray, 50, 150)
+        
+        # Dilate edges slightly to form the foreground content mask
+        kernel_fg = np.ones((3, 3), np.uint8)
+        mask_fg = cv2.dilate(edges, kernel_fg, iterations=1)
+        
+        # Dilate heavily to create a combined area, then subtract fg to get the halo (immediate background)
+        kernel_bg = np.ones((7, 7), np.uint8)
+        mask_combined = cv2.dilate(edges, kernel_bg, iterations=1)
+        mask_halo = cv2.bitwise_xor(mask_combined, mask_fg)
 
-        # ── DETERMINISTIC: pure-numpy kmeans, no RNG ──────────────────────────
-        labels, centers = kmeans_deterministic(pixels, K)
+        # Extract pixels using the masks
+        fg_pixels = small[mask_fg > 0].astype(np.float32)
+        bg_pixels = small[mask_halo > 0].astype(np.float32)
 
-        # Only compare clusters that cover ≥5 % of the image (foreground/bg pairs)
-        label_counts = np.bincount(labels.flatten(), minlength=K)
-        total = len(pixels)
-        significant = [
-            (i, centers[i])
-            for i in range(K)
-            if label_counts[i] / total >= 0.05
-        ]
+        # Fallback to whole image if morphological extraction failed (e.g., blank image)
+        if len(fg_pixels) < 10 or len(bg_pixels) < 10:
+            fg_pixels = small.reshape(-1, 3).astype(np.float32)
+            bg_pixels = fg_pixels
 
-        max_ratio = 1.0
-        pool = significant if len(significant) >= 2 else list(enumerate(centers))
+        # ── Find Dominant Colors via Deterministic K-Means ────────────────────
+        # Find dominant foreground color
+        fg_labels, fg_centers = kmeans_deterministic(fg_pixels, 3)
+        fg_counts = np.bincount(fg_labels.flatten())
+        dominant_fg = fg_centers[np.argmax(fg_counts)]
 
-        for i in range(len(pool)):
-            for j in range(i + 1, len(pool)):
-                r = get_contrast_ratio(pool[i][1], pool[j][1])
-                if r > max_ratio:
-                    max_ratio = r
+        # Find dominant background color from the halo
+        bg_labels, bg_centers = kmeans_deterministic(bg_pixels, 2)
+        bg_counts = np.bincount(bg_labels.flatten())
+        dominant_bg = bg_centers[np.argmax(bg_counts)]
+
+        # Calculate contrast ratio between these specific regions
+        max_ratio = get_contrast_ratio(dominant_fg, dominant_bg)
+
+        # For thoroughness, also check top 2 fg vs top bg just in case the true text color was the 2nd most dominant in the edge mask
+        if len(fg_counts) > 1:
+            second_fg_idx = np.argsort(fg_counts)[-2]
+            second_fg = fg_centers[second_fg_idx]
+            ratio2 = get_contrast_ratio(second_fg, dominant_bg)
+            max_ratio = max(max_ratio, ratio2)
 
         sub_score = normalize_contrast(max_ratio)
 
         if max_ratio >= 9.0:
             feedback = (f"WCAG AAA+ ({max_ratio:.2f}:1) — "
-                        "Exceptional contrast. Ideal for accessibility and professional clarity.")
+                        "Exceptional contrast inside text regions. Ideal for accessibility and professional clarity.")
         elif max_ratio >= 7.0:
             feedback = (f"WCAG AAA ({max_ratio:.2f}:1) — "
-                        "Top-tier contrast. Perfect for all text sizes.")
+                        "Top-tier contrast detected by morphological analysis. Perfect for all text sizes.")
         elif max_ratio >= 4.5:
             feedback = (f"WCAG AA ({max_ratio:.2f}:1) — "
-                        "Acceptable baseline. Push toward 7:1 for elite-level readability.")
+                        "Acceptable baseline contrast. Push toward 7:1 for elite-level readability.")
         elif max_ratio >= 3.0:
             feedback = (f"Below AA ({max_ratio:.2f}:1) — "
-                        "Passes only for large text (18pt+). Darken text or lighten background.")
+                        "Passes only for large text (18pt+). Text regions lack sufficient contrast against immediate background.")
         else:
             feedback = (f"WCAG FAIL ({max_ratio:.2f}:1) — "
-                        "Unacceptable contrast. Text will be unreadable for many users.")
+                        "Unacceptable contrast in content areas. Text will be unreadable for many users.")
 
         return {
             "raw_value": round(max_ratio, 2),

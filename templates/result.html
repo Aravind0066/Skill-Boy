@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SkillBlade Referee — Result</title>
-    <meta name="description" content="SkillBlade evaluation result: {{ results.tier_name }} tier, score {{ results.design_craft_score }}/100.">
+    <meta name="description" content="SkillBlade evaluation result: {{ results.tier_name }} tier, score {{ results.total_score | default(results.design_craft_score) }}/100.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
@@ -136,10 +136,23 @@
         <!-- Points in rubric -->
         <div class="points-row">
             <span>Points Awarded:</span>
-            <span class="pts-val">{{ results.design_craft_points }}</span>
-            <span>/ {{ results.max_points }}</span>
+            <span class="pts-val">{{ results.total_score | default(results.design_craft_score) }}</span>
+            <span>/ 100</span>
         </div>
     </section>
+
+    <div class="section-header">100-Point Rubric</div>
+    <div class="rubric-grid">
+        {% for item in (results.rubric or []) %}
+        <div class="rubric-card">
+            <div class="rubric-card-top">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.points }}/{{ item.weight }}</strong>
+            </div>
+            <div class="rubric-meta">{{ item.score }}/100{% if item.automated %} · image-based estimate{% endif %}</div>
+        </div>
+        {% endfor %}
+    </div>
 
     {% if results.is_multi %}
         {# ── Multi-Asset Breakdown ──────────────────────────────── #}
@@ -150,7 +163,7 @@
                 <div class="frame-header">
                     <span class="frame-title">Frame {{ loop.index }}</span>
                     <div>
-                        <span class="frame-score">{{ frame.design_craft_score }}</span>
+                        <span class="frame-score">{{ frame.total_score | default(frame.design_craft_score) }}</span>
                         <span class="frame-tier tier-{{ frame.tier_key }}" style="color: var(--{{ frame.tier_key }}); background: rgba(255,255,255,0.05); margin-left: 0.5rem;">{{ frame.tier_name }}</span>
                     </div>
                 </div>
@@ -167,7 +180,7 @@
         </div>
     {% else %}
         {# ── Single Asset UI (Existing) ─────────────────────────── #}
-        {% if results.design_craft_score >= 90 %}
+        {% if results.total_score | default(results.design_craft_score) >= 85 %}
         <div class="elite-banner">
             Outstanding Craft — No critical weaknesses detected.
         </div>
@@ -263,7 +276,7 @@
 
     // ── Score Ring Animation ─────────────────────────────────
     const TOTAL_DASH = 326.7;
-    const targetScore = {{ results.design_craft_score | default(0) }};
+    const targetScore = {{ results.total_score | default(results.design_craft_score) | default(0) }};
     const ring = document.getElementById('scoreRing');
     const counter = document.getElementById('scoreCounter');
 

@@ -8,12 +8,13 @@ Scoring Pipeline (per user spec):
   3. design_craft_score scaled into points → design_craft_points (0 to MAX_POINTS)
 
 Module weights (sum = 1.0):
-  Contrast        → 0.25  (WCAG readability — non-negotiable)
-  Visual Hierarchy→ 0.20  (size tiers & focal point — top design skill)
-  Grid Alignment  → 0.20  (layout discipline & column structure)
-  Color Palette   → 0.15  (palette control & saturation discipline)
+  Contrast        → 0.20  (Morphological Text-Region Isolation)
+  Visual Hierarchy→ 0.15  (Size tiers & focal point)
+  Grid Alignment  → 0.15  (2D Spatial Grids - Rows & Columns)
+  Visual Balance  → 0.15  (Macro Whitespace Density)
+  Color Palette   → 0.15  (Palette control & saturation discipline)
   Spacing Rhythm  → 0.12  (8px grid adherence + gap consistency)
-  Button/Component→ 0.08  (component uniformity)
+  Button/Component→ 0.08  (Component uniformity)
 
 Tier thresholds (stricter for professional screening):
   Elite        ≥ 88  — Portfolio-ready, clear hire signal
@@ -30,12 +31,14 @@ from modules.grid_alignment     import evaluate_grid
 from modules.color_palette      import evaluate_colors
 from modules.spacing_rhythm     import evaluate_spacing
 from modules.button_consistency import evaluate_buttons
+from modules.visual_balance     import evaluate_balance
 
 # ── Configurable weights (must sum to 1.0) ────────────────────────────────────
 WEIGHTS = {
-    "contrast":   0.25,
-    "hierarchy":  0.20,
-    "grid":       0.20,
+    "contrast":   0.20,
+    "hierarchy":  0.15,
+    "grid":       0.15,
+    "balance":    0.15,
     "colors":     0.15,
     "spacing":    0.12,
     "buttons":    0.08,
@@ -80,6 +83,7 @@ def evaluate_screenshot(image_path):
         "contrast":  evaluate_contrast(image_path),
         "hierarchy": evaluate_hierarchy(image_path),
         "grid":      evaluate_grid(image_path),
+        "balance":   evaluate_balance(image_path),
         "colors":    evaluate_colors(image_path),
         "spacing":   evaluate_spacing(image_path),
         "buttons":   evaluate_buttons(image_path),
@@ -102,7 +106,7 @@ def evaluate_screenshot(image_path):
     module_display = [
         {
             "key":        "contrast",
-            "label":      "Contrast & Readability",
+            "label":      "Morphological Contrast",
             "weight_pct": int(WEIGHTS["contrast"] * 100),
             "sub_score":  results_raw["contrast"]["sub_score"],
             "raw_display": f"{results_raw['contrast']['raw_value']}:1",
@@ -120,12 +124,21 @@ def evaluate_screenshot(image_path):
         },
         {
             "key":        "grid",
-            "label":      "Grid & Layout",
+            "label":      "2D Spatial Grid",
             "weight_pct": int(WEIGHTS["grid"] * 100),
             "sub_score":  results_raw["grid"]["sub_score"],
             "raw_display": str(results_raw["grid"]["raw_value"]),
-            "raw_label":  "Alignment Columns",
+            "raw_label":  "Alignment",
             "feedback":   results_raw["grid"]["feedback"],
+        },
+        {
+            "key":        "balance",
+            "label":      "Visual Balance",
+            "weight_pct": int(WEIGHTS["balance"] * 100),
+            "sub_score":  results_raw["balance"]["sub_score"],
+            "raw_display": str(results_raw["balance"]["raw_value"]),
+            "raw_label":  "Macro Whitespace",
+            "feedback":   results_raw["balance"]["feedback"],
         },
         {
             "key":        "colors",

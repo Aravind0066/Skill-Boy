@@ -43,6 +43,16 @@ def cleanup_files(filepaths):
         except OSError:
             pass
 
+
+def unique_upload_path(filename):
+    """Return a collision-free temporary path while preserving the extension."""
+    safe_name = secure_filename(filename)
+    stem, extension = os.path.splitext(safe_name)
+    return os.path.join(
+        app.config['UPLOAD_FOLDER'],
+        f"{uuid.uuid4().hex}_{stem}{extension.lower()}"
+    )
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -63,29 +73,30 @@ def index():
             file = files[0]
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
-                video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                video_path = unique_upload_path(filename)
                 file.save(video_path)
                 
                 # Extract frames
                 try:
                     frames, video_meta = extract_frames(video_path, target_fps=1.0, max_frames=20)
                     for i, frame in enumerate(frames):
-                        frame_filename = f"frame_{i:03d}_{filename}.jpg"
-                        frame_path = os.path.join(app.config['UPLOAD_FOLDER'], frame_filename)
+                        frame_path = unique_upload_path(
+                            f"frame_{i:03d}_{filename}.jpg"
+                        )
                         cv2.imwrite(frame_path, frame)
                         filepaths.append(frame_path)
                     
                     # Clean up the original video to save space
                     os.remove(video_path)
                 except Exception as e:
+                    cleanup_files([video_path])
                     cleanup_files(filepaths)
                     return render_template('result.html', results={"error": f"Failed to process video: {str(e)}"})
         else:
             # Handle multiple images
             for file in files:
                 if file and allowed_file(file.filename):
-                    filename = secure_filename(file.filename)
-                    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    filepath = unique_upload_path(file.filename)
                     file.save(filepath)
                     filepaths.append(filepath)
         
@@ -138,8 +149,24 @@ def index():
 
         if is_multi:
             # Aggregate scores (average)
-            total_score = sum(r['design_craft_score'] for r in all_results)
+            total_score = sum(r['total_score'] for r in all_results)
             avg_score = round(total_score / len(all_results), 1)
+            avg_design_craft = round(
+                sum(r['design_craft_score'] for r in all_results) / len(all_results), 1
+            )
+            avg_rubric = []
+            for index, item in enumerate(all_results[0]['rubric']):
+                avg_rubric.append({
+                    **item,
+                    "score": round(
+                        sum(r['rubric'][index]['score'] for r in all_results)
+                        / len(all_results), 1
+                    ),
+                    "points": round(
+                        sum(r['rubric'][index]['points'] for r in all_results)
+                        / len(all_results), 1
+                    ),
+                })
             
             from evaluator import get_tier, tier_description, MAX_POINTS
             tier_name, tier_icon, tier_key = get_tier(avg_score)
@@ -150,8 +177,10 @@ def index():
                 "mode": mode,
                 "file_count": len(all_results),
                 "video_meta": video_meta,
-                "design_craft_score": avg_score,
-                "design_craft_points": avg_points,
+                "design_craft_score": avg_design_craft,
+                "total_score": avg_score,
+                "design_craft_points": round((avg_design_craft / 100) * MAX_POINTS, 1),
+                "rubric": avg_rubric,
                 "max_points": MAX_POINTS,
                 "tier_name": tier_name,
                 "tier_icon": tier_icon,
@@ -202,7 +231,7 @@ def history():
 
     try:
         response = supabase.table('evaluations').select(
-            'id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls'
+            'id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls, results_json'
         ).order('created_at', desc=True).execute()
 
         evaluations = response.data or []
@@ -214,6 +243,10 @@ def history():
             # Normalise image_urls — Supabase may return None instead of []
             if ev.get('image_urls') is None:
                 ev['image_urls'] = []
+            saved_results = ev.get('results_json') or {}
+            ev['total_score'] = saved_results.get(
+                'total_score', ev.get('design_craft_score', 0)
+            )
 
         return render_template('history.html', evaluations=evaluations, error=None)
     except Exception as e:

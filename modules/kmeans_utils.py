@@ -17,8 +17,9 @@ def _init_centers_deterministic(pixels: np.ndarray, k: int) -> np.ndarray:
     Pick k initial centers by sampling evenly from brightness-sorted pixels.
     Fully deterministic — no RNG.
     """
-    # Sort pixels by their L2 norm (brightness proxy) for canonical ordering
-    order = np.argsort(np.linalg.norm(pixels, axis=1))
+    # Include channel values as tie-breakers so equal-brightness pixels have a
+    # canonical order across NumPy implementations.
+    order = np.lexsort(tuple(pixels[:, index] for index in range(pixels.shape[1] - 1, -1, -1)) + (np.linalg.norm(pixels, axis=1),))
     sorted_pixels = pixels[order]
     # Evenly spaced indices across the sorted array
     indices = np.linspace(0, len(sorted_pixels) - 1, k, dtype=int)
@@ -41,6 +42,11 @@ def kmeans_deterministic(pixels: np.ndarray, k: int,
         labels   : (N,) int32 array of cluster assignments
         centers  : (k, D) float32 array of final centroids
     """
+    if pixels.ndim != 2 or len(pixels) == 0:
+        raise ValueError("pixels must be a non-empty 2D array")
+    if k < 1 or k > len(pixels):
+        raise ValueError("k must be between 1 and the number of pixels")
+
     centers = _init_centers_deterministic(pixels, k)
 
     for _ in range(max_iter):

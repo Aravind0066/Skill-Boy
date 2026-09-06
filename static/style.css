@@ -320,6 +320,39 @@ body::before {
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
 }
+
+.rubric-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 0.75rem;
+    margin: 1rem 0 2rem;
+}
+
+.rubric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+}
+
+.rubric-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.9rem;
+}
+
+.rubric-card-top strong {
+    color: var(--accent);
+    white-space: nowrap;
+}
+
+.rubric-meta {
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    margin-top: 0.4rem;
+}
 .rules-grid div {
     display: flex;
     justify-content: space-between;
