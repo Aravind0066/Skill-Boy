@@ -72,36 +72,5 @@ new_db_insert = """        # Store in Supabase if configured
 
 content = re.sub(r'        # Store in Supabase if configured.*?print\(f"Failed to store result in Supabase: \{e\}"\)', new_db_insert, content, flags=re.DOTALL)
 
-# 4. Add history routes
-history_routes = """
-@app.route('/history')
-def history():
-    if not supabase:
-        return render_template('history.html', error="Supabase is not configured.", evaluations=[])
-    
-    try:
-        response = supabase.table('evaluations').select('id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls').order('created_at', desc=True).execute()
-        return render_template('history.html', evaluations=response.data)
-    except Exception as e:
-        return render_template('history.html', error=f"Failed to fetch history: {str(e)}", evaluations=[])
-
-@app.route('/history/<uuid:eval_id>')
-def history_detail(eval_id):
-    if not supabase:
-        return redirect('/')
-    
-    try:
-        response = supabase.table('evaluations').select('results_json').eq('id', str(eval_id)).execute()
-        if not response.data:
-            return redirect('/history')
-            
-        results = response.data[0]['results_json']
-        return render_template('result.html', results=results)
-    except Exception as e:
-        return redirect('/history')
-"""
-
-content = content.replace("    return render_template('index.html')", "    return render_template('index.html')\n" + history_routes)
-
 with open('app.py', 'w') as f:
     f.write(content)

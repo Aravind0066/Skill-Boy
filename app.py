@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import json
 import uuid
+from urllib.parse import urlparse
 
 load_dotenv()
 
@@ -17,7 +18,12 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_KEY:
-    supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+    parsed_supabase_url = urlparse(SUPABASE_URL)
+    if parsed_supabase_url.scheme in {'http', 'https'} and parsed_supabase_url.netloc:
+        try:
+            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        except Exception as error:
+            print(f"Supabase initialization skipped: {error}")
 
 app = Flask(__name__)
 
@@ -149,24 +155,41 @@ def index():
 
         if is_multi:
             # Aggregate scores (average)
-            total_score = sum(r['total_score'] for r in all_results)
-            avg_score = round(total_score / len(all_results), 1)
-            avg_design_craft = round(
-                sum(r['design_craft_score'] for r in all_results) / len(all_results), 1
+            avg_score = round(
+                sum(r.get('design_craft_score', 0) for r in all_results) / len(all_results), 1
             )
-            avg_rubric = []
-            for index, item in enumerate(all_results[0]['rubric']):
-                avg_rubric.append({
-                    **item,
-                    "score": round(
-                        sum(r['rubric'][index]['score'] for r in all_results)
-                        / len(all_results), 1
-                    ),
-                    "points": round(
-                        sum(r['rubric'][index]['points'] for r in all_results)
-                        / len(all_results), 1
-                    ),
+            avg_design_craft = round(
+                sum(r.get('design_craft_score', 0) for r in all_results) / len(all_results), 1
+            )
+            avg_modules = []
+            for module in all_results[0].get('modules', []):
+                module_key = module.get('key')
+                module_scores = [
+                    candidate.get('sub_score', 0)
+                    for result in all_results
+                    for candidate in result.get('modules', [])
+                    if candidate.get('key') == module_key
+                ]
+                avg_sub_score = round(
+                    sum(module_scores) / len(module_scores), 1
+                ) if module_scores else 0
+                avg_modules.append({
+                    **module,
+                    "sub_score": avg_sub_score,
                 })
+
+            avg_rubric = [
+                {
+                    "label": module.get("label", "Unknown"),
+                    "score": module["sub_score"],
+                    "points": round(
+                        module["sub_score"] * module.get("weight_pct", 0) / 100, 1
+                    ),
+                    "weight": module.get("weight_pct", 0),
+                    "automated": True,
+                }
+                for module in avg_modules
+            ]
             
             from evaluator import get_tier, tier_description, MAX_POINTS
             tier_name, tier_icon, tier_key = get_tier(avg_score)
@@ -186,7 +209,8 @@ def index():
                 "tier_icon": tier_icon,
                 "tier_key": tier_key,
                 "tier_desc": tier_description(tier_name),
-                "frames": all_results
+                "frames": all_results,
+                "modules": avg_modules,
             }
         else:
             aggregated_results = all_results[0]
@@ -223,62 +247,6 @@ def index():
         return render_template('result.html', results=aggregated_results)
             
     return render_template('index.html')
-
-@app.route('/history')
-def history():
-    if not supabase:
-        return render_template('history.html', error="Database not configured. Add SUPABASE_URL and SUPABASE_KEY to your environment variables.", evaluations=[])
-
-    try:
-        response = supabase.table('evaluations').select(
-            'id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, tier_icon, image_urls, results_json'
-        ).order('created_at', desc=True).execute()
-
-        evaluations = response.data or []
-
-        # Ensure every record has a safe created_at string for the template's [:10] slice
-        for ev in evaluations:
-            if not ev.get('created_at'):
-                ev['created_at'] = 'Unknown date'
-            # Normalise image_urls — Supabase may return None instead of []
-            if ev.get('image_urls') is None:
-                ev['image_urls'] = []
-            saved_results = ev.get('results_json') or {}
-            ev['total_score'] = saved_results.get(
-                'total_score', ev.get('design_craft_score', 0)
-            )
-
-        return render_template('history.html', evaluations=evaluations, error=None)
-    except Exception as e:
-        print(f"History fetch error: {e}")
-        return render_template('history.html', error=f"Failed to fetch history: {str(e)}", evaluations=[])
-
-@app.route('/history/<string:eval_id>')
-def history_detail(eval_id):
-    """Show full result page for a previously-evaluated entry.
-    
-    Uses <string:eval_id> instead of <uuid:eval_id> to avoid Flask rejecting
-    IDs that may have been stored with non-standard formatting.
-    """
-    if not supabase:
-        return render_template('history.html', error="Database not configured.", evaluations=[])
-
-    try:
-        response = supabase.table('evaluations').select('results_json, image_urls').eq('id', eval_id).execute()
-        if not response.data:
-            return render_template('history.html', error=f"Evaluation '{eval_id}' not found.", evaluations=[])
-
-        row = response.data[0]
-        results = row.get('results_json') or {}
-
-        # Re-attach image_urls so the result page can display thumbnails
-        if not results.get('image_urls'):
-            results['image_urls'] = row.get('image_urls') or []
-
-        return render_template('result.html', results=results)
-    except Exception as e:
-        print(f"History detail error for {eval_id}: {e}")
-        return render_template('history.html', error=f"Failed to load evaluation: {str(e)}", evaluations=[])
 
 
 # Vercel uses this as the WSGI application object
