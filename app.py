@@ -20,6 +20,7 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_SERVER_KEY = SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_PERSIST_RESULTS = os.environ.get("SUPABASE_PERSIST_RESULTS", "false").lower() == "true"
 supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_SERVER_KEY:
@@ -168,7 +169,7 @@ def index():
         eval_id = str(uuid.uuid4())
         image_urls = []
 
-        if supabase:
+        if supabase and SUPABASE_PERSIST_RESULTS:
             g.pipeline_stage = 'supabase_storage_upload'
             for fp in filepaths:
                 try:
@@ -197,7 +198,7 @@ def index():
                     warning = f"{code}: {action}"
                     warnings.append(warning)
                     print(f"PIPELINE_WARNING code={code} stage={g.pipeline_stage} detail={e}")
-        else:
+        elif not supabase:
             warnings.append(
                 'SUPABASE_NOT_CONFIGURED: Results are not being saved. Add SUPABASE_URL and SUPABASE_SECRET_KEY in Render.'
             )
@@ -302,7 +303,7 @@ def index():
             aggregated_results["file_count"] = 1
             
         # Store in Supabase if configured
-        if supabase:
+        if supabase and SUPABASE_PERSIST_RESULTS:
             try:
                 g.pipeline_stage = 'supabase_database_insert'
                 # Round-trip through JSON to convert any numpy types to native Python
