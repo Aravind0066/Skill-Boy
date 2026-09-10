@@ -16,12 +16,12 @@ Module weights (sum = 1.0):
   Spacing Rhythm  → 0.12  (8px grid adherence + gap consistency)
   Button/Component→ 0.08  (Component uniformity)
 
-Tier thresholds (stricter for professional screening):
-  Elite        ≥ 88  — Portfolio-ready, clear hire signal
-  Rider        ≥ 76  — Strong work, minor polish needed
-  Blader Rider ≥ 62  — Decent base with clear weak areas
-  Blader       ≥ 44  — Needs significant rework
-  Rejected      < 44  — Design fundamentals not met
+Tier thresholds (calibrated for screenshot-only evidence):
+    Elite        ≥ 85  — Visually polished and consistently strong
+    Rider        ≥ 72  — Good visual quality with limited weaknesses
+    Blader Rider ≥ 58  — Competent foundation with visible improvements needed
+    Blader       ≥ 42  — Major visual inconsistencies remain
+    Rejected      < 42  — Fundamental visual problems detected
 """
 
 import os
@@ -58,11 +58,11 @@ MAX_POINTS = 20
 
 
 def get_tier(score):
-    """Map final 0-100 score to a SkillBlade tier (stricter thresholds)."""
-    if score >= 88:   return ("Elite",        "🏆", "elite")
-    elif score >= 76: return ("Rider",         "🚀", "rider")
-    elif score >= 62: return ("Blader Rider",  "⚡", "blader-rider")
-    elif score >= 44: return ("Blader",        "🔰", "blader")
+    """Map a screenshot-only visual score to a calibrated SkillBlade tier."""
+    if score >= 85:   return ("Elite",        "🏆", "elite")
+    elif score >= 72: return ("Rider",        "🚀", "rider")
+    elif score >= 58: return ("Blader Rider", "⚡", "blader-rider")
+    elif score >= 42: return ("Blader",       "🔰", "blader")
     else:             return ("Rejected",      "❌", "rejected")
 
 
