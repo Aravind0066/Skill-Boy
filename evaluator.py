@@ -61,8 +61,8 @@ def get_tier(score):
     """Map a screenshot-only visual score to a calibrated SkillBlade tier."""
     if score >= 85:   return ("Elite",        "🏆", "elite")
     elif score >= 72: return ("Rider",        "🚀", "rider")
-    elif score >= 58: return ("Blader Rider", "⚡", "blader-rider")
-    elif score >= 42: return ("Blader",       "🔰", "blader")
+    elif score >= 60: return ("Blader Rider", "⚡", "blader-rider")
+    elif score >= 48: return ("Blader",       "🔰", "blader")
     else:             return ("Rejected",      "❌", "rejected")
 
 
