@@ -33,15 +33,18 @@ from modules.spacing_rhythm     import evaluate_spacing
 from modules.button_consistency import evaluate_buttons
 from modules.visual_balance     import evaluate_balance
 
-# ── Configurable weights (must sum to 1.0) ────────────────────────────────────
+# ── Visual-judge weights (must sum to 1.0) ───────────────────────────────────
+# Structure and clarity carry more weight than any single pixel-level signal.
+# Contrast remains important, but strong edges alone should not produce an
+# elite result without hierarchy, composition, rhythm, and consistency.
 WEIGHTS = {
-    "contrast":   0.20,
-    "hierarchy":  0.15,
-    "grid":       0.15,
+    "contrast":   0.12,
+    "hierarchy":  0.20,
+    "grid":       0.18,
     "balance":    0.15,
-    "colors":     0.15,
-    "spacing":    0.12,
-    "buttons":    0.08,
+    "colors":     0.12,
+    "spacing":    0.13,
+    "buttons":    0.10,
 }
 
 # Max points in the bigger 100-pt rubric allocated to Design & Craft
