@@ -18,24 +18,23 @@ import numpy as np
 def normalize_density(density_pct):
     """
     Score the active content density percentage.
-    Ideal: 25% - 40%
-    Sparse: < 20%
+    Web screenshots often use large intentional hero whitespace. For that
+    reason, the detector treats 8% - 30% edge-derived content as balanced.
+    Sparse: < 8%
     Cluttered: > 50%
     """
-    if 25.0 <= density_pct <= 40.0:
+    if 8.0 <= density_pct <= 30.0:
         return 100.0
-    elif 20.0 <= density_pct < 25.0:
-        # Sparse but ok: 20->80, 25->100
-        return 80.0 + ((density_pct - 20.0) / 5.0) * 20.0
-    elif 40.0 < density_pct <= 50.0:
-        # Getting cluttered: 40->100, 50->60
-        return 100.0 - ((density_pct - 40.0) / 10.0) * 40.0
+    elif 4.0 <= density_pct < 8.0:
+        return 60.0 + ((density_pct - 4.0) / 4.0) * 40.0
+    elif 30.0 < density_pct <= 50.0:
+        return 100.0 - ((density_pct - 30.0) / 20.0) * 40.0
     elif density_pct > 50.0:
         # Highly cluttered: drops fast
         return max(0.0, 60.0 - ((density_pct - 50.0) * 2.0))
     else:
         # Very sparse: < 20%
-        return max(0.0, 80.0 - ((20.0 - density_pct) * 4.0))
+        return max(0.0, 60.0 - ((4.0 - density_pct) * 15.0))
 
 
 def evaluate_balance(image_path):
@@ -83,10 +82,10 @@ def evaluate_balance(image_path):
         if sub_score >= 90:
             feedback = (f"Macro Whitespace ({whitespace_pct:.1f}%) — perfect visual balance. "
                         "The design breathes well without feeling empty.")
-        elif density_pct > 40.0:
+        elif density_pct > 30.0:
             feedback = (f"Macro Whitespace ({whitespace_pct:.1f}%) — slightly cluttered. "
                         "Increase padding and negative space between sections.")
-        elif density_pct < 25.0:
+        elif density_pct < 8.0:
             feedback = (f"Macro Whitespace ({whitespace_pct:.1f}%) — slightly sparse. "
                         "The layout feels empty; consider scaling up elements or adding content density.")
         

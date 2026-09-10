@@ -3,6 +3,7 @@ import tempfile
 import cv2
 import hashlib
 from flask import Flask, request, render_template, redirect
+from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 from evaluator import evaluate_screenshot
 from modules.video_frame_extractor import extract_frames
@@ -16,14 +17,14 @@ from urllib.parse import urlparse
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 supabase: Client = None
 
-if SUPABASE_URL and SUPABASE_KEY:
+if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
     parsed_supabase_url = urlparse(SUPABASE_URL)
     if parsed_supabase_url.scheme in {'http', 'https'} and parsed_supabase_url.netloc:
         try:
-            supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+            supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
         except Exception as error:
             print(f"Supabase initialization skipped: {error}")
 
@@ -283,7 +284,6 @@ def index():
                     "tier_name": str(safe_results.get("tier_name", "Unknown")),
                     "tier_key": str(safe_results.get("tier_key", "unknown")),
                     "tier_icon": str(safe_results.get("tier_icon", "")),
-                    "image_urls": image_urls,
                     "results_json": safe_results
                 }
                 supabase.table("evaluations").insert(db_record).execute()
@@ -299,6 +299,11 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/favicon.ico')
+def favicon():
+    return '', 204
+
+
 @app.errorhandler(413)
 def request_too_large(error):
     return render_template(
@@ -309,6 +314,8 @@ def request_too_large(error):
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(error):
+    if isinstance(error, HTTPException):
+        return error
     traceback.print_exc()
     return render_template(
         'result.html',

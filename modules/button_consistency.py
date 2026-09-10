@@ -63,9 +63,9 @@ def evaluate_buttons(image_path):
         elif cv_pct <= 15:
             sub_score = 80.0 + (15.0 - cv_pct) / 10.0 * 20.0
         elif cv_pct <= 30:
-            sub_score = 30.0 + (30.0 - cv_pct) / 15.0 * 50.0
+            sub_score = 60.0 + (30.0 - cv_pct) / 15.0 * 40.0
         else:
-            sub_score = max(0.0, 30.0 - (cv_pct - 30.0) * 0.5)
+            sub_score = max(0.0, 60.0 - (cv_pct - 30.0) * 0.5)
 
         n = len(button_heights)
         if sub_score >= 90:
