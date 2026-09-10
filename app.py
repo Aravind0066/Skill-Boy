@@ -29,8 +29,7 @@ if SUPABASE_URL and SUPABASE_KEY:
 
 app = Flask(__name__)
 
-# Use /tmp for serverless environments (Vercel, AWS Lambda, etc.)
-# Falls back to local 'uploads' for local development
+# Use /tmp for Render and local development so uploaded files are temporary.
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), 'skillblade_uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB limit for videos
@@ -317,8 +316,7 @@ def handle_unexpected_error(error):
     ), 500
 
 
-# Vercel uses this as the WSGI application object
-# The variable name 'app' is what @vercel/python looks for by default
+# Gunicorn uses this Flask object as the WSGI application.
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
