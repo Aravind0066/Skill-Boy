@@ -101,6 +101,17 @@
         </h1>
     </header>
 
+    {% if results.pipeline_warnings %}
+    <div class="pipeline-warnings">
+        <strong>Pipeline warnings</strong>
+        <ul>
+            {% for warning in results.pipeline_warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
     {# ── Score Hero ─────────────────────────────────────────── #}
     {% set tier_css = 'tier-' + results.tier_key %}
     <section class="score-hero {{ tier_css }}">

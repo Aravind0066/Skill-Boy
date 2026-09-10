@@ -2,7 +2,7 @@ import os
 import tempfile
 import cv2
 import hashlib
-from flask import Flask, request, render_template, redirect
+from flask import Flask, g, request, render_template, redirect
 from werkzeug.exceptions import HTTPException
 from werkzeug.utils import secure_filename
 from evaluator import evaluate_screenshot
@@ -25,8 +25,11 @@ if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
     if parsed_supabase_url.scheme in {'http', 'https'} and parsed_supabase_url.netloc:
         try:
             supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            print("SUPABASE_STATUS=initialized")
         except Exception as error:
-            print(f"Supabase initialization skipped: {error}")
+            print(f"SUPABASE_STATUS=error detail={error}")
+else:
+    print("SUPABASE_STATUS=disabled missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
 
 app = Flask(__name__)
 
@@ -83,9 +86,25 @@ def normalize_uploaded_image(filepath):
     )
     return bool(cv2.imwrite(filepath, resized))
 
+
+def classify_error(error):
+    """Return a safe, actionable category for logs and user-facing errors."""
+    message = str(error).lower()
+    if 'row-level security' in message or 'unauthorized' in message:
+        return 'SUPABASE_STORAGE_RLS', 'Supabase Storage rejected the upload. Check the service-role key and the uploads bucket.'
+    if 'schema cache' in message or 'column' in message and 'evaluations' in message:
+        return 'SUPABASE_DATABASE_SCHEMA', 'Supabase rejected the evaluation record. Check that the evaluations table columns match the app.'
+    if 'supabase' in message or 'postgrest' in message:
+        return 'SUPABASE_CONNECTION', 'Supabase could not be reached or rejected the request. Check SUPABASE_URL, the key, and project status.'
+    if 'decode' in message or 'image' in message:
+        return 'IMAGE_PROCESSING', 'One uploaded file could not be decoded as a supported image.'
+    return 'UNEXPECTED_PIPELINE_ERROR', 'The analysis pipeline failed. Check the Render log entry with the error ID.'
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
+    g.pipeline_stage = 'request_received'
     if request.method == 'POST':
+        warnings = []
         mode = request.form.get('upload_mode', 'images')
         
         if 'files' not in request.files:
@@ -105,6 +124,7 @@ def index():
         video_meta = None
         
         if mode == 'video':
+            g.pipeline_stage = 'video_processing'
             # Handle single video
             file = files[0]
             if file and allowed_file(file.filename):
@@ -130,6 +150,7 @@ def index():
                     return render_template('result.html', results={"error": f"Failed to process video: {str(e)}"})
         else:
             # Handle multiple images
+            g.pipeline_stage = 'image_upload_processing'
             for file in files:
                 if file and allowed_file(file.filename):
                     filepath = unique_upload_path(file.filename)
@@ -146,6 +167,7 @@ def index():
         image_urls = []
 
         if supabase:
+            g.pipeline_stage = 'supabase_storage_upload'
             for fp in filepaths:
                 try:
                     filename = os.path.basename(fp)
@@ -169,9 +191,17 @@ def index():
                     public_url = supabase.storage.from_("uploads").get_public_url(storage_path)
                     image_urls.append(public_url)
                 except Exception as e:
-                    print(f"Supabase upload error for {fp}: {e}")
+                    code, action = classify_error(e)
+                    warning = f"{code}: {action}"
+                    warnings.append(warning)
+                    print(f"PIPELINE_WARNING code={code} stage={g.pipeline_stage} detail={e}")
+        else:
+            warnings.append(
+                'SUPABASE_NOT_CONFIGURED: Results are not being saved. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Render.'
+            )
 
         # Evaluate all screenshots/frames
+        g.pipeline_stage = 'image_evaluation'
         all_results = []
         evaluation_errors = []
         evaluation_cache = {}
@@ -272,6 +302,7 @@ def index():
         # Store in Supabase if configured
         if supabase:
             try:
+                g.pipeline_stage = 'supabase_database_insert'
                 # Round-trip through JSON to convert any numpy types to native Python
                 # NOTE: Keep results_json clean — don't inject id/image_urls into it
                 safe_results = json.loads(json.dumps(aggregated_results, default=str))
@@ -288,11 +319,14 @@ def index():
                 }
                 supabase.table("evaluations").insert(db_record).execute()
             except Exception as e:
-                print(f"Failed to store result in Supabase: {e}")
+                code, action = classify_error(e)
+                warnings.append(f"{code}: {action}")
+                print(f"PIPELINE_WARNING code={code} stage={g.pipeline_stage} detail={e}")
 
         # Attach eval metadata for the result page (after DB write, so results_json stays clean)
         aggregated_results["id"] = eval_id
         aggregated_results["image_urls"] = image_urls
+        aggregated_results["pipeline_warnings"] = warnings
 
         return render_template('result.html', results=aggregated_results)
             
@@ -316,10 +350,19 @@ def request_too_large(error):
 def handle_unexpected_error(error):
     if isinstance(error, HTTPException):
         return error
+    error_id = uuid.uuid4().hex[:8]
+    code, action = classify_error(error)
+    stage = getattr(g, 'pipeline_stage', 'unknown')
+    print(
+        f"PIPELINE_ERROR id={error_id} code={code} stage={stage} "
+        f"type={type(error).__name__} detail={error}"
+    )
     traceback.print_exc()
     return render_template(
         'result.html',
-        results={"error": "Analysis failed unexpectedly. Please retry with smaller images."}
+        results={
+            "error": f"{code} (error ID: {error_id})\n{action}"
+        }
     ), 500
 
 

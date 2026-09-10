@@ -681,6 +681,25 @@ body::before {
     color: var(--text);
 }
 
+.pipeline-warnings {
+    background: rgba(245, 200, 66, 0.08);
+    border: 1px solid rgba(245, 200, 66, 0.35);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    color: var(--text);
+}
+.pipeline-warnings strong {
+    color: var(--accent);
+}
+.pipeline-warnings ul {
+    margin: 0.75rem 0 0 1.25rem;
+}
+.pipeline-warnings li + li {
+    margin-top: 0.4rem;
+}
+
 /* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 600px) {
     .container { padding: 2rem 1.5rem; }
