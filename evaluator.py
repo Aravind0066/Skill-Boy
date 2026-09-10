@@ -109,7 +109,8 @@ def evaluate_screenshot(image_path):
     module_display = [
         {
             "key":        "contrast",
-            "label":      "Morphological Contrast",
+            "label":      "Visual Design & Contrast",
+            "sub_metrics": ["foreground/background separation", "readability signal"],
             "weight_pct": int(WEIGHTS["contrast"] * 100),
             "sub_score":  results_raw["contrast"]["sub_score"],
             "raw_display": f"{results_raw['contrast']['raw_value']}:1",
@@ -119,6 +120,7 @@ def evaluate_screenshot(image_path):
         {
             "key":        "hierarchy",
             "label":      "Visual Hierarchy",
+            "sub_metrics": ["size tiers", "focal prominence", "section differentiation"],
             "weight_pct": int(WEIGHTS["hierarchy"] * 100),
             "sub_score":  results_raw["hierarchy"]["sub_score"],
             "raw_display": f"{results_raw['hierarchy']['raw_value']} tiers",
@@ -127,7 +129,8 @@ def evaluate_screenshot(image_path):
         },
         {
             "key":        "grid",
-            "label":      "2D Spatial Grid",
+            "label":      "Layout & Composition",
+            "sub_metrics": ["horizontal alignment", "vertical alignment", "grid structure"],
             "weight_pct": int(WEIGHTS["grid"] * 100),
             "sub_score":  results_raw["grid"]["sub_score"],
             "raw_display": str(results_raw["grid"]["raw_value"]),
@@ -136,7 +139,8 @@ def evaluate_screenshot(image_path):
         },
         {
             "key":        "balance",
-            "label":      "Visual Balance",
+            "label":      "Visual Clarity",
+            "sub_metrics": ["content density", "whitespace", "visual clutter"],
             "weight_pct": int(WEIGHTS["balance"] * 100),
             "sub_score":  results_raw["balance"]["sub_score"],
             "raw_display": str(results_raw["balance"]["raw_value"]),
@@ -146,6 +150,7 @@ def evaluate_screenshot(image_path):
         {
             "key":        "colors",
             "label":      "Color Discipline",
+            "sub_metrics": ["palette complexity", "saturation balance", "dominant-color control"],
             "weight_pct": int(WEIGHTS["colors"] * 100),
             "sub_score":  results_raw["colors"]["sub_score"],
             "raw_display": str(results_raw["colors"]["raw_value"]),
@@ -154,7 +159,8 @@ def evaluate_screenshot(image_path):
         },
         {
             "key":        "spacing",
-            "label":      "Spacing Rhythm",
+            "label":      "Spacing & Rhythm",
+            "sub_metrics": ["gap consistency", "8px rhythm adherence", "vertical spacing"],
             "weight_pct": int(WEIGHTS["spacing"] * 100),
             "sub_score":  results_raw["spacing"]["sub_score"],
             "raw_display": f"{results_raw['spacing']['raw_value']}%",
@@ -163,7 +169,8 @@ def evaluate_screenshot(image_path):
         },
         {
             "key":        "buttons",
-            "label":      "Component Consistency",
+            "label":      "Component Consistency & Polish",
+            "sub_metrics": ["repeated component geometry", "button height consistency", "alignment consistency"],
             "weight_pct": int(WEIGHTS["buttons"] * 100),
             "sub_score":  results_raw["buttons"]["sub_score"],
             "raw_display": f"{results_raw['buttons']['raw_value']}%",
