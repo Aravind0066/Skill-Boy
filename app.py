@@ -17,19 +17,21 @@ from urllib.parse import urlparse
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+SUPABASE_SERVER_KEY = SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
 supabase: Client = None
 
-if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY:
+if SUPABASE_URL and SUPABASE_SERVER_KEY:
     parsed_supabase_url = urlparse(SUPABASE_URL)
     if parsed_supabase_url.scheme in {'http', 'https'} and parsed_supabase_url.netloc:
         try:
-            supabase = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+            supabase = create_client(SUPABASE_URL, SUPABASE_SERVER_KEY)
             print("SUPABASE_STATUS=initialized")
         except Exception as error:
             print(f"SUPABASE_STATUS=error detail={error}")
 else:
-    print("SUPABASE_STATUS=disabled missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
+    print("SUPABASE_STATUS=disabled missing SUPABASE_URL or SUPABASE_SECRET_KEY")
 
 app = Flask(__name__)
 
@@ -197,7 +199,7 @@ def index():
                     print(f"PIPELINE_WARNING code={code} stage={g.pipeline_stage} detail={e}")
         else:
             warnings.append(
-                'SUPABASE_NOT_CONFIGURED: Results are not being saved. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Render.'
+                'SUPABASE_NOT_CONFIGURED: Results are not being saved. Add SUPABASE_URL and SUPABASE_SECRET_KEY in Render.'
             )
 
         # Evaluate all screenshots/frames
