@@ -1,6 +1,7 @@
 import os
 import tempfile
 import cv2
+import hashlib
 from flask import Flask, request, render_template, redirect
 from werkzeug.utils import secure_filename
 from evaluator import evaluate_screenshot
@@ -9,6 +10,7 @@ from dotenv import load_dotenv
 from supabase import create_client, Client
 import json
 import uuid
+import traceback
 from urllib.parse import urlparse
 
 load_dotenv()
@@ -32,6 +34,8 @@ app = Flask(__name__)
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), 'skillblade_uploads')
 app.config['UPLOAD_FOLDER'] = UPLOAD_DIR
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50 MB limit for videos
+MAX_IMAGE_COUNT = 12
+MAX_IMAGE_DIMENSION = 1600
 
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -59,6 +63,26 @@ def unique_upload_path(filename):
         f"{uuid.uuid4().hex}_{stem}{extension.lower()}"
     )
 
+
+def normalize_uploaded_image(filepath):
+    """Validate an image and cap its dimensions before CPU-heavy evaluation."""
+    image = cv2.imread(filepath)
+    if image is None:
+        return False
+
+    height, width = image.shape[:2]
+    largest_dimension = max(height, width)
+    if largest_dimension <= MAX_IMAGE_DIMENSION:
+        return True
+
+    scale = MAX_IMAGE_DIMENSION / largest_dimension
+    resized = cv2.resize(
+        image,
+        (max(1, round(width * scale)), max(1, round(height * scale))),
+        interpolation=cv2.INTER_AREA,
+    )
+    return bool(cv2.imwrite(filepath, resized))
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -70,6 +94,12 @@ def index():
         files = request.files.getlist('files')
         if not files or files[0].filename == '':
             return redirect(request.url)
+
+        if mode != 'video' and len(files) > MAX_IMAGE_COUNT:
+            return render_template(
+                'result.html',
+                results={"error": f"Please upload no more than {MAX_IMAGE_COUNT} images per analysis."}
+            )
             
         filepaths = []
         video_meta = None
@@ -104,7 +134,10 @@ def index():
                 if file and allowed_file(file.filename):
                     filepath = unique_upload_path(file.filename)
                     file.save(filepath)
-                    filepaths.append(filepath)
+                    if normalize_uploaded_image(filepath):
+                        filepaths.append(filepath)
+                    else:
+                        cleanup_files([filepath])
         
         if not filepaths:
             return render_template('result.html', results={"error": "No valid files were processed."})
@@ -141,9 +174,14 @@ def index():
         # Evaluate all screenshots/frames
         all_results = []
         evaluation_errors = []
+        evaluation_cache = {}
         for fp in filepaths:
             try:
-                res = evaluate_screenshot(fp)
+                with open(fp, 'rb') as image_file:
+                    image_hash = hashlib.sha256(image_file.read()).hexdigest()
+                if image_hash not in evaluation_cache:
+                    evaluation_cache[image_hash] = evaluate_screenshot(fp)
+                res = evaluation_cache[image_hash]
             except Exception as error:
                 res = {"error": str(error)}
 
@@ -260,6 +298,23 @@ def index():
         return render_template('result.html', results=aggregated_results)
             
     return render_template('index.html')
+
+
+@app.errorhandler(413)
+def request_too_large(error):
+    return render_template(
+        'result.html',
+        results={"error": "The upload is too large. Please use smaller images or fewer files."}
+    ), 413
+
+
+@app.errorhandler(Exception)
+def handle_unexpected_error(error):
+    traceback.print_exc()
+    return render_template(
+        'result.html',
+        results={"error": "Analysis failed unexpectedly. Please retry with smaller images."}
+    ), 500
 
 
 # Vercel uses this as the WSGI application object
