@@ -32,19 +32,23 @@ from modules.color_palette      import evaluate_colors
 from modules.spacing_rhythm     import evaluate_spacing
 from modules.button_consistency import evaluate_buttons
 from modules.visual_balance     import evaluate_balance
+from modules.typography         import evaluate_typography
+from modules.visual_polish      import evaluate_polish
 
 # ── Visual-judge weights (must sum to 1.0) ───────────────────────────────────
 # Structure and clarity carry more weight than any single pixel-level signal.
 # Contrast remains important, but strong edges alone should not produce an
 # elite result without hierarchy, composition, rhythm, and consistency.
 WEIGHTS = {
-    "contrast":   0.12,
+    "contrast":   0.10,
     "hierarchy":  0.20,
-    "grid":       0.18,
-    "balance":    0.15,
-    "colors":     0.12,
+    "grid":       0.16,
+    "balance":    0.13,
+    "colors":     0.11,
     "spacing":    0.13,
-    "buttons":    0.10,
+    "buttons":    0.07,
+    "typography": 0.06,
+    "polish":     0.04,
 }
 
 # Max points in the bigger 100-pt rubric allocated to Design & Craft
@@ -90,6 +94,8 @@ def evaluate_screenshot(image_path):
         "colors":    evaluate_colors(image_path),
         "spacing":   evaluate_spacing(image_path),
         "buttons":   evaluate_buttons(image_path),
+        "typography": evaluate_typography(image_path),
+        "polish":    evaluate_polish(image_path),
     }
 
     # ── Weighted average of sub_scores (0-100) ────────────────────────────────
@@ -176,6 +182,26 @@ def evaluate_screenshot(image_path):
             "raw_display": f"{results_raw['buttons']['raw_value']}%",
             "raw_label":  "Height Variance",
             "feedback":   results_raw["buttons"]["feedback"],
+        },
+        {
+            "key":        "typography",
+            "label":      "Typography Hierarchy",
+            "sub_metrics": ["text-size tiers", "heading/body separation"],
+            "weight_pct": int(WEIGHTS["typography"] * 100),
+            "sub_score":  results_raw["typography"]["sub_score"],
+            "raw_display": f"{results_raw['typography']['raw_value']} tiers",
+            "raw_label":  "Detected Text Scale",
+            "feedback":   results_raw["typography"]["feedback"],
+        },
+        {
+            "key":        "polish",
+            "label":      "Visual Polish",
+            "sub_metrics": ["boundary clipping", "obvious unfinished edges"],
+            "weight_pct": int(WEIGHTS["polish"] * 100),
+            "sub_score":  results_raw["polish"]["sub_score"],
+            "raw_display": str(results_raw["polish"]["raw_value"]),
+            "raw_label":  "Defect Signal",
+            "feedback":   results_raw["polish"]["feedback"],
         },
     ]
 
