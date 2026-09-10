@@ -27,7 +27,7 @@ def _init_centers_deterministic(pixels: np.ndarray, k: int) -> np.ndarray:
 
 
 def kmeans_deterministic(pixels: np.ndarray, k: int,
-                          max_iter: int = 30,
+                          max_iter: int = 12,
                           tol: float = 0.5) -> tuple:
     """
     Deterministic K-Means clustering.
@@ -46,6 +46,13 @@ def kmeans_deterministic(pixels: np.ndarray, k: int,
         raise ValueError("pixels must be a non-empty 2D array")
     if k < 1 or k > len(pixels):
         raise ValueError("k must be between 1 and the number of pixels")
+
+    # The evaluator only needs dominant-color estimates. Keep the quadratic
+    # distance matrix bounded on small Render instances and large uploads.
+    max_samples = 8000
+    if len(pixels) > max_samples:
+        sample_indices = np.linspace(0, len(pixels) - 1, max_samples, dtype=int)
+        pixels = pixels[sample_indices]
 
     centers = _init_centers_deterministic(pixels, k)
 
