@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkillBlade Referee — History</title>
+    <meta name="description" content="Your recent SkillBlade evaluation history.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .history-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .history-table-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface);
+        }
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 620px;
+        }
+        .history-table th,
+        .history-table td {
+            padding: 1rem 1.25rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        .history-table th {
+            color: var(--muted);
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+        .history-table tr:last-child td { border-bottom: 0; }
+        .history-score { font-weight: 700; font-size: 1.1rem; }
+        .history-tier { color: var(--accent); font-weight: 600; }
+        .history-empty,
+        .history-error {
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            background: var(--surface);
+            color: var(--muted);
+            padding: 2rem;
+            text-align: center;
+        }
+        @media (max-width: 640px) {
+            .history-toolbar { align-items: flex-start; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="top-bar">
+        <span class="toggle-label">Dark</span>
+        <label class="theme-switch" title="Toggle light/dark theme">
+            <input type="checkbox" id="themeToggle">
+            <span class="theme-slider"></span>
+        </label>
+        <span class="toggle-label">Light</span>
+        <a href="{{ url_for('index') }}" class="history-link">New Evaluation</a>
+    </div>
+
+    <header class="main-header">
+        <h1>
+            Evaluation History
+            <span class="sub-title">Your latest 50 analyses</span>
+        </h1>
+        <p class="header-subtitle">Review scores from this browser.</p>
+    </header>
+
+    <main>
+        <div id="historyState" class="history-empty">Loading history...</div>
+        <div id="historyTableWrap" class="history-table-wrap" hidden>
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Score</th>
+                        <th>Tier</th>
+                        <th>Mode</th>
+                        <th>Files</th>
+                        <th>Website confidence</th>
+                    </tr>
+                </thead>
+                <tbody id="historyRows"></tbody>
+            </table>
+        </div>
+    </main>
+</div>
+
+<script>
+    const html = document.documentElement;
+    const toggle = document.getElementById('themeToggle');
+    const saved = localStorage.getItem('sb-theme');
+    if (saved === 'light') {
+        html.setAttribute('data-theme', 'light');
+        toggle.checked = true;
+    }
+    toggle.addEventListener('change', () => {
+        const theme = toggle.checked ? 'light' : 'dark';
+        html.setAttribute('data-theme', theme);
+        localStorage.setItem('sb-theme', theme);
+    });
+
+    const state = document.getElementById('historyState');
+    const tableWrap = document.getElementById('historyTableWrap');
+    const rows = document.getElementById('historyRows');
+
+    function formatDate(value) {
+        return new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        }).format(new Date(value));
+    }
+
+    fetch('{{ url_for("history") }}')
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok || data.error) throw new Error(data.error || 'Unable to load history.');
+            if (!data.evaluations.length) {
+                state.textContent = 'No evaluations yet. Run an analysis to start your history.';
+                return;
+            }
+
+            rows.innerHTML = data.evaluations.map(item => `
+                <tr>
+                    <td>${formatDate(item.created_at)}</td>
+                    <td class="history-score">${Number(item.design_craft_score).toFixed(1)}/100</td>
+                    <td class="history-tier">${item.tier_name}</td>
+                    <td>${item.mode}</td>
+                    <td>${item.file_count}</td>
+                    <td>${Number(item.website_confidence).toFixed(0)}%</td>
+                </tr>
+            `).join('');
+            state.hidden = true;
+            tableWrap.hidden = false;
+        })
+        .catch(error => {
+            state.className = 'history-error';
+            state.textContent = error.message;
+        });
+</script>
+</body>
+</html>

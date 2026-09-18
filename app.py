@@ -361,6 +361,12 @@ def index():
 
 
 @app.route('/history')
+def history_page():
+    """Render the current player's persisted score history."""
+    return render_template('history.html')
+
+
+@app.route('/api/history')
 def history():
     """Return the current player's persisted score history."""
     if not supabase or not SUPABASE_PERSIST_RESULTS:
