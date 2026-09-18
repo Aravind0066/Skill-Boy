@@ -25,7 +25,7 @@
         .history-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 620px;
+            min-width: 900px;
         }
         .history-table th,
         .history-table td {
@@ -43,6 +43,8 @@
         .history-table tr:last-child td { border-bottom: 0; }
         .history-score { font-weight: 700; font-size: 1.1rem; }
         .history-tier { color: var(--accent); font-weight: 600; }
+        .history-table a { color: var(--accent); text-decoration: none; }
+        .history-table a:hover { text-decoration: underline; }
         .history-empty,
         .history-error {
             border: 1px solid var(--border);
@@ -84,6 +86,9 @@
                 <thead>
                     <tr>
                         <th>Date</th>
+                        <th>Blade</th>
+                        <th>Website</th>
+                        <th>Images</th>
                         <th>Score</th>
                         <th>Tier</th>
                         <th>Mode</th>
@@ -122,6 +127,12 @@
         }).format(new Date(value));
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>'"]/g, character => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[character]));
+    }
+
     fetch('{{ url_for("history") }}')
         .then(response => response.json().then(data => ({ ok: response.ok, data })))
         .then(({ ok, data }) => {
@@ -134,10 +145,13 @@
             rows.innerHTML = data.evaluations.map(item => `
                 <tr>
                     <td>${formatDate(item.created_at)}</td>
+                    <td>${escapeHtml(item.blade_name || 'Anonymous Blade')}</td>
+                    <td>${escapeHtml(item.website_name || 'Unknown Website')}</td>
+                    <td>${(item.image_urls || []).map((url, index) => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener">Image ${index + 1}</a>`).join(' ') || 'None'}</td>
                     <td class="history-score">${Number(item.design_craft_score).toFixed(1)}/100</td>
-                    <td class="history-tier">${item.tier_name}</td>
-                    <td>${item.mode}</td>
-                    <td>${item.file_count}</td>
+                    <td class="history-tier">${escapeHtml(item.tier_name)}</td>
+                    <td>${escapeHtml(item.mode)}</td>
+                    <td>${Number(item.file_count) || 0}</td>
                     <td>${Number(item.website_confidence).toFixed(0)}%</td>
                 </tr>
             `).join('');

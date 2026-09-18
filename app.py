@@ -111,6 +111,8 @@ def index():
     if request.method == 'POST':
         warnings = []
         mode = request.form.get('upload_mode', 'images')
+        blade_name = request.form.get('blade_name', '').strip() or 'Anonymous Blade'
+        website_name = request.form.get('website_name', '').strip() or 'Unknown Website'
         
         if 'files' not in request.files:
             return redirect(request.url)
@@ -332,6 +334,9 @@ def index():
                 db_record = {
                     "id": eval_id,
                     "player_id": player_id,
+                    "blade_name": blade_name,
+                    "website_name": website_name,
+                    "image_urls": image_urls,
                     "mode": mode,
                     "file_count": int(safe_results.get("file_count", 1)),
                     "design_craft_score": float(safe_results.get("design_craft_score", 0)),
@@ -349,6 +354,8 @@ def index():
 
         # Attach eval metadata for the result page (after DB write, so results_json stays clean)
         aggregated_results["id"] = eval_id
+        aggregated_results["blade_name"] = blade_name
+        aggregated_results["website_name"] = website_name
         aggregated_results["image_urls"] = image_urls
         aggregated_results["pipeline_warnings"] = warnings
 
@@ -378,7 +385,7 @@ def history():
 
     try:
         response = supabase.table("evaluations").select(
-            "id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, website_confidence"
+            "id, created_at, blade_name, website_name, image_urls, mode, file_count, design_craft_score, tier_name, tier_key, website_confidence"
         ).eq("player_id", player_id).order("created_at", desc=True).limit(50).execute()
         return {"evaluations": response.data or []}
     except Exception as error:

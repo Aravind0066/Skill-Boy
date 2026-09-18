@@ -38,6 +38,17 @@
             <div class="panel-title">New Evaluation</div>
 
             <form action="/" method="post" enctype="multipart/form-data" id="uploadForm">
+                <div class="evaluation-details">
+                    <label>
+                        Blade name
+                        <input type="text" name="blade_name" maxlength="80" placeholder="Your name or handle">
+                    </label>
+                    <label>
+                        Website name
+                        <input type="text" name="website_name" maxlength="120" placeholder="Website being evaluated">
+                    </label>
+                </div>
+
                 <div class="upload-mode-toggle" style="margin-bottom: 2rem; display: flex; gap: 1rem; justify-content: center;">
                     <label style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
                         <input type="radio" name="upload_mode" value="images" checked>
