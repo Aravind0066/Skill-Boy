@@ -1,0 +1,12 @@
+{
+  "name": "skill-boy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "migrate": "node /db/migrate.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "pg": "^8.13.1"
+  }
+}

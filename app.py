@@ -13,6 +13,7 @@ import json
 import uuid
 import traceback
 from urllib.parse import urlparse
+from modules.website_detector import detect_website
 
 load_dotenv()
 
@@ -20,7 +21,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SECRET_KEY = os.environ.get("SUPABASE_SECRET_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 SUPABASE_SERVER_KEY = SUPABASE_SECRET_KEY or SUPABASE_SERVICE_ROLE_KEY
-SUPABASE_PERSIST_RESULTS = os.environ.get("SUPABASE_PERSIST_RESULTS", "false").lower() == "true"
+SUPABASE_PERSIST_RESULTS = os.environ.get("SUPABASE_PERSIST_RESULTS", "true").lower() == "true"
+WEBSITE_MIN_CONFIDENCE = int(os.environ.get("WEBSITE_MIN_CONFIDENCE", "55"))
 supabase: Client = None
 
 if SUPABASE_URL and SUPABASE_SERVER_KEY:
@@ -167,7 +169,24 @@ def index():
             return render_template('result.html', results={"error": "No valid files were processed."})
 
         eval_id = str(uuid.uuid4())
+        player_id = request.cookies.get('skillblade_player_id') or uuid.uuid4().hex
         image_urls = []
+
+        recognition = []
+        for filepath in filepaths:
+            detected = detect_website(filepath)
+            recognition.append(detected)
+
+        if any(item["confidence"] < WEBSITE_MIN_CONFIDENCE for item in recognition):
+            cleanup_files(filepaths)
+            return render_template(
+                'result.html',
+                results={
+                    "error": "This upload does not look like a website screenshot. "
+                    "Upload a browser or app UI capture with visible layout and content.",
+                    "recognition": recognition,
+                }
+            ), 422
 
         if supabase and SUPABASE_PERSIST_RESULTS:
             g.pipeline_stage = 'supabase_storage_upload'
@@ -312,12 +331,14 @@ def index():
                 
                 db_record = {
                     "id": eval_id,
+                    "player_id": player_id,
                     "mode": mode,
                     "file_count": int(safe_results.get("file_count", 1)),
                     "design_craft_score": float(safe_results.get("design_craft_score", 0)),
                     "tier_name": str(safe_results.get("tier_name", "Unknown")),
                     "tier_key": str(safe_results.get("tier_key", "unknown")),
                     "tier_icon": str(safe_results.get("tier_icon", "")),
+                    "website_confidence": min(item["confidence"] for item in recognition),
                     "results_json": safe_results
                 }
                 supabase.table("evaluations").insert(db_record).execute()
@@ -331,9 +352,33 @@ def index():
         aggregated_results["image_urls"] = image_urls
         aggregated_results["pipeline_warnings"] = warnings
 
-        return render_template('result.html', results=aggregated_results)
+        response = render_template('result.html', results=aggregated_results)
+        response = app.make_response(response)
+        response.set_cookie('skillblade_player_id', player_id, max_age=60 * 60 * 24 * 365, httponly=True, samesite='Lax')
+        return response
             
     return render_template('index.html')
+
+
+@app.route('/history')
+def history():
+    """Return the current player's persisted score history."""
+    if not supabase or not SUPABASE_PERSIST_RESULTS:
+        return {"error": "Score history is not configured."}, 503
+
+    player_id = request.cookies.get('skillblade_player_id')
+    if not player_id:
+        return {"evaluations": []}
+
+    try:
+        response = supabase.table("evaluations").select(
+            "id, created_at, mode, file_count, design_craft_score, tier_name, tier_key, website_confidence"
+        ).eq("player_id", player_id).order("created_at", desc=True).limit(50).execute()
+        return {"evaluations": response.data or []}
+    except Exception as error:
+        code, action = classify_error(error)
+        print(f"PIPELINE_WARNING code={code} stage=history_read detail={error}")
+        return {"error": action}, 500
 
 
 @app.route('/favicon.ico')

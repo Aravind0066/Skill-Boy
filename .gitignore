@@ -219,3 +219,6 @@ __marimo__/
 
 # SkillBlade
 uploads/
+
+# Node dependencies
+node_modules/
